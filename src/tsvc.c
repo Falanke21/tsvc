@@ -28,6 +28,9 @@
 #include <math.h>
 #include <sys/time.h>
 
+// Intel Intrinsics
+#include <immintrin.h>
+
 #include "common.h"
 #include "array_defs.h"
 
@@ -1635,6 +1638,87 @@ real_t s258(struct args_t * func_args)
 
     gettimeofday(&func_args->t2, NULL);
     return calc_checksum(__func__);
+
+    // initialise_arrays(__func__);
+    // gettimeofday(&func_args->t1, NULL);
+
+    // real_t s;
+    // for (int nl = 0; nl < iterations; nl++) {
+    //     s = 0.;
+    //     // Vector operations
+    //     int stride = 4;
+    //     int upper_bound = LEN_2D / stride * stride;
+    //     int i = 0;
+    //     for (; i < upper_bound; i += stride) {
+    //         if (a[i] > 0. && a[i + 1] > 0. && a[i + 2] > 0. && a[i + 3] > 0.) {
+    //             // Loads
+    //             __m128 vec_c = _mm_load_ps(&c[i]);
+    //             __m128 vec_d = _mm_load_ps(&d[i]);
+    //             __m128 vec_aa = _mm_load_ps(&(aa[0][i]));
+
+    //             // s = d[i] * d[i];
+    //             __m128 vec_s = _mm_mul_ps(vec_d, vec_d);
+    //             // b[i] = s * c[i] + d[i];
+    //             _mm_store_ps(&b[i], _mm_fmadd_ps(vec_s, vec_c, vec_d));
+    //             // e[i] = (s + (real_t)1.) * aa[0][i];
+    //             _mm_store_ps(&e[i], _mm_mul_ps(_mm_add_ps(vec_s, _mm_set1_ps((real_t)1.)), vec_aa));
+    //             // Update s since we might have dependence
+    //             // s = d[i + 3] * d[i + 3];
+    //             s = _mm_cvtss_f32(vec_s);
+    //         } else if (!(a[i] > 0.) && !(a[i + 1] > 0.) && !(a[i + 2] > 0.) && !(a[i + 3] > 0.))
+    //         {
+    //             // Loads
+    //             __m128 vec_c = _mm_load_ps(&c[i]);
+    //             __m128 vec_d = _mm_load_ps(&d[i]);
+    //             __m128 vec_aa = _mm_load_ps(&(aa[0][i]));
+
+    //             // Set vec_s
+    //             __m128 vec_s = _mm_set1_ps(s);
+    //             // b[i] = s * c[i] + d[i];
+    //             _mm_store_ps(&b[i], _mm_fmadd_ps(vec_s, vec_c, vec_d));
+    //             // e[i] = (s + (real_t)1.) * aa[0][i];
+    //             _mm_store_ps(&e[i], _mm_mul_ps(_mm_add_ps(vec_s, _mm_set1_ps((real_t)1.)), vec_aa));
+    //         } else 
+    //         {
+    //             // Unroll loop
+    //             if (a[i] > 0.) {
+    //                 s = d[i] * d[i];
+    //             }
+    //             b[i] = s * c[i] + d[i];
+    //             e[i] = (s + (real_t)1.) * aa[0][i];
+
+    //             if (a[i + 1] > 0.) {
+    //                 s = d[i + 1] * d[i + 1];
+    //             }
+    //             b[i + 1] = s * c[i + 1] + d[i + 1];
+    //             e[i + 1] = (s + (real_t)1.) * aa[0][i + 1];
+
+    //             if (a[i + 2] > 0.) {
+    //                 s = d[i + 2] * d[i + 2];
+    //             }
+    //             b[i + 2] = s * c[i + 2] + d[i + 2];
+    //             e[i + 2] = (s + (real_t)1.) * aa[0][i + 2];
+
+    //             if (a[i + 3] > 0.) {
+    //                 s = d[i + 3] * d[i + 3];
+    //             }
+    //             b[i + 3] = s * c[i + 3] + d[i + 3];
+    //             e[i + 3] = (s + (real_t)1.) * aa[0][i + 3];
+    //         }
+    //     }
+    //     // Now handle the remainder of n / stride
+    //     for (; i < LEN_2D; i++)
+    //     {
+    //         if (a[i] > 0.) {
+    //             s = d[i] * d[i];
+    //         }
+    //         b[i] = s * c[i] + d[i];
+    //         e[i] = (s + (real_t)1.) * aa[0][i];
+    //     }
+    //     dummy(a, b, c, d, e, aa, bb, cc, 0.);
+    // }
+    // gettimeofday(&func_args->t2, NULL);
+    // return calc_checksum(__func__);
 }
 
 // %2.7
@@ -1681,6 +1765,126 @@ real_t s271(struct args_t * func_args)
         dummy(a, b, c, d, e, aa, bb, cc, 0.);
     }
 
+    gettimeofday(&func_args->t2, NULL);
+    return calc_checksum(__func__);
+}
+
+real_t s271_intri_sse(struct args_t * func_args)
+{
+    // SSE
+    initialise_arrays(__func__);
+    gettimeofday(&func_args->t1, NULL);
+
+    for (int nl = 0; nl < 4*iterations; nl++) {
+        // Vector operations
+        int stride = 4;
+        int upper_bound = LEN_1D / stride * stride;
+        int i = 0;
+        for (; i < upper_bound; i += stride) {
+            if (b[i] > (real_t)0. && b[i + 1] > (real_t)0. && 
+                b[i + 2] > (real_t)0. && b[i + 3] > (real_t)0.) 
+            {
+                __m128 vec_a = _mm_load_ps(&a[i]);
+                __m128 vec_b = _mm_load_ps(&b[i]);
+                __m128 vec_c = _mm_load_ps(&c[i]);
+
+                __m128 vec_product = _mm_mul_ps(vec_b, vec_c);
+                _mm_store_ps(&a[i], _mm_add_ps(vec_a, vec_product));
+            } 
+            else if (!(b[i] > (real_t)0.) && !(b[i + 1] > (real_t)0.) && 
+                     !(b[i + 2] > (real_t)0.) && !(b[i + 3] > (real_t)0.))
+            {}
+            else 
+            {
+                if (b[i] > (real_t)0.) {
+                    a[i] += b[i] * c[i];
+                }
+                if (b[i + 1] > (real_t)0.) {
+                    a[i + 1] += b[i + 1] * c[i + 1];
+                }
+                if (b[i + 2] > (real_t)0.) {
+                    a[i + 2] += b[i + 2] * c[i + 2];
+                }
+                if (b[i + 3] > (real_t)0.) {
+                    a[i + 3] += b[i + 3] * c[i + 3];
+                }
+            }
+        }
+        // handle remainder
+        for (; i < LEN_1D; i++) {
+            if (b[i] > (real_t)0.) {
+                a[i] += b[i] * c[i];
+            }
+        }
+    }
+    gettimeofday(&func_args->t2, NULL);
+    return calc_checksum(__func__);
+}
+
+real_t s271_intri_avx(struct args_t * func_args)
+{
+    // SSE
+    initialise_arrays(__func__);
+    gettimeofday(&func_args->t1, NULL);
+
+    for (int nl = 0; nl < 4*iterations; nl++) {
+        // Vector operations
+        int stride = 8;
+        int upper_bound = LEN_1D / stride * stride;
+        int i = 0;
+        for (; i < upper_bound; i += stride) {
+            if (b[i] > (real_t)0. && b[i + 1] > (real_t)0. && 
+                b[i + 2] > (real_t)0. && b[i + 3] > (real_t)0. &&
+                b[i + 4] > (real_t)0. && b[i + 5] > (real_t)0. &&
+                b[i + 6] > (real_t)0. && b[i + 7] > (real_t)0.)
+            {
+                __m256 vec_a = _mm256_load_ps(&a[i]);
+                __m256 vec_b = _mm256_load_ps(&b[i]);
+                __m256 vec_c = _mm256_load_ps(&c[i]);
+
+                __m256 vec_product = _mm256_mul_ps(vec_b, vec_c);
+                _mm256_store_ps(&a[i], _mm256_add_ps(vec_a, vec_product));
+            } 
+            else if (!(b[i] > (real_t)0.) && !(b[i + 1] > (real_t)0.) && 
+                     !(b[i + 2] > (real_t)0.) && !(b[i + 3] > (real_t)0.) &&
+                     !(b[i + 4] > (real_t)0.) && !(b[i + 5] > (real_t)0.) &&
+                     !(b[i + 6] > (real_t)0.) && !(b[i + 7] > (real_t)0.))
+            {}
+            else 
+            {
+                if (b[i] > (real_t)0.) {
+                    a[i] += b[i] * c[i];
+                }
+                if (b[i + 1] > (real_t)0.) {
+                    a[i + 1] += b[i + 1] * c[i + 1];
+                }
+                if (b[i + 2] > (real_t)0.) {
+                    a[i + 2] += b[i + 2] * c[i + 2];
+                }
+                if (b[i + 3] > (real_t)0.) {
+                    a[i + 3] += b[i + 3] * c[i + 3];
+                }
+                if (b[i + 4] > (real_t)0.) {
+                    a[i + 4] += b[i + 4] * c[i + 4];
+                }
+                if (b[i + 5] > (real_t)0.) {
+                    a[i + 5] += b[i + 5] * c[i + 5];
+                }
+                if (b[i + 6] > (real_t)0.) {
+                    a[i + 6] += b[i + 6] * c[i + 6];
+                }
+                if (b[i + 7] > (real_t)0.) {
+                    a[i + 7] += b[i + 7] * c[i + 7];
+                }
+            }
+        }
+        // handle remainder
+        for (; i < LEN_1D; i++) {
+            if (b[i] > (real_t)0.) {
+                a[i] += b[i] * c[i];
+            }
+        }
+    }
     gettimeofday(&func_args->t2, NULL);
     return calc_checksum(__func__);
 }
@@ -1761,6 +1965,154 @@ real_t s274(struct args_t * func_args)
         dummy(a, b, c, d, e, aa, bb, cc, 0.);
     }
 
+    gettimeofday(&func_args->t2, NULL);
+    return calc_checksum(__func__);
+}
+
+real_t s274_intri_sse(struct args_t * func_args)
+{
+    initialise_arrays(__func__);
+    gettimeofday(&func_args->t1, NULL);
+
+    for (int nl = 0; nl < iterations; nl++) {
+        // Vector operations
+        int stride = 4;
+        int upper_bound = LEN_1D / stride * stride;
+        int i = 0;
+        for (; i < upper_bound; i += stride) {
+            __m128 vec_c = _mm_load_ps(&c[i]);
+            __m128 vec_d = _mm_load_ps(&d[i]);
+            __m128 vec_e = _mm_load_ps(&e[i]);
+            _mm_store_ps(&a[i], _mm_add_ps(vec_c, _mm_mul_ps(vec_e, vec_d)));
+            if (a[i] > (real_t)0. && a[i + 1] > (real_t)0. && 
+                a[i + 2] > (real_t)0. && a[i + 3] > (real_t)0.) {
+                __m128 vec_a = _mm_load_ps(&a[i]);
+                __m128 vec_b = _mm_load_ps(&b[i]);
+                _mm_store_ps(&b[i], _mm_add_ps(vec_a, vec_b));
+            } else if (!(a[i] > (real_t)0.) && !(a[i + 1] > (real_t)0.) && 
+                !(a[i + 2] > (real_t)0.) && !(a[i + 3] > (real_t)0.))
+            {
+                _mm_store_ps(&a[i], _mm_mul_ps(vec_d, vec_e));
+            } else 
+            {
+                if (a[i] > (real_t)0.) {
+                    b[i] = a[i] + b[i];
+                } else {
+                    a[i] = d[i] * e[i];
+                }
+                if (a[i + 1] > (real_t)0.) {
+                    b[i + 1] = a[i + 1] + b[i + 1];
+                } else {
+                    a[i + 1] = d[i + 1] * e[i + 1];
+                }
+                if (a[i + 2] > (real_t)0.) {
+                    b[i + 2] = a[i + 2] + b[i + 2];
+                } else {
+                    a[i + 2] = d[i + 2] * e[i + 2];
+                }
+                if (a[i + 3] > (real_t)0.) {
+                    b[i + 3] = a[i + 3] + b[i + 3];
+                } else {
+                    a[i + 3] = d[i + 3] * e[i + 3];
+                }
+            }
+        }
+        // handle remainder
+        for (; i < LEN_1D; i++) {
+            if (a[i] > (real_t)0.) {
+                b[i] = a[i] + b[i];
+            } else {
+                a[i] = d[i] * e[i];
+            }
+        }
+        dummy(a, b, c, d, e, aa, bb, cc, 0.);
+    }
+    gettimeofday(&func_args->t2, NULL);
+    return calc_checksum(__func__);
+}
+
+real_t s274_intri_avx(struct args_t * func_args)
+{
+    initialise_arrays(__func__);
+    gettimeofday(&func_args->t1, NULL);
+
+    for (int nl = 0; nl < iterations; nl++) {
+        // Vector operations
+        int stride = 8;
+        int upper_bound = LEN_1D / stride * stride;
+        int i = 0;
+        for (; i < upper_bound; i += stride) {
+            __m256 vec_c = _mm256_load_ps(&c[i]);
+            __m256 vec_d = _mm256_load_ps(&d[i]);
+            __m256 vec_e = _mm256_load_ps(&e[i]);
+            _mm256_store_ps(&a[i], _mm256_add_ps(vec_c, _mm256_mul_ps(vec_e, vec_d)));
+            if (a[i] > (real_t)0. && a[i + 1] > (real_t)0. && 
+                a[i + 2] > (real_t)0. && a[i + 3] > (real_t)0. &&
+                a[i + 4] > (real_t)0. && a[i + 5] > (real_t)0. &&
+                a[i + 6] > (real_t)0. && a[i + 7] > (real_t)0.) {
+                __m256 vec_a = _mm256_load_ps(&a[i]);
+                __m256 vec_b = _mm256_load_ps(&b[i]);
+                _mm256_store_ps(&b[i], _mm256_add_ps(vec_a, vec_b));
+            } else if (!(a[i] > (real_t)0.) && !(a[i + 1] > (real_t)0.) && 
+                !(a[i + 2] > (real_t)0.) && !(a[i + 3] > (real_t)0.) &&
+                !(a[i + 4] > (real_t)0.) && !(a[i + 5] > (real_t)0.) &&
+                !(a[i + 6] > (real_t)0.) && !(a[i + 7] > (real_t)0.))
+            {
+                _mm256_store_ps(&a[i], _mm256_mul_ps(vec_d, vec_e));
+            } else 
+            {
+                if (a[i] > (real_t)0.) {
+                    b[i] = a[i] + b[i];
+                } else {
+                    a[i] = d[i] * e[i];
+                }
+                if (a[i + 1] > (real_t)0.) {
+                    b[i + 1] = a[i + 1] + b[i + 1];
+                } else {
+                    a[i + 1] = d[i + 1] * e[i + 1];
+                }
+                if (a[i + 2] > (real_t)0.) {
+                    b[i + 2] = a[i + 2] + b[i + 2];
+                } else {
+                    a[i + 2] = d[i + 2] * e[i + 2];
+                }
+                if (a[i + 3] > (real_t)0.) {
+                    b[i + 3] = a[i + 3] + b[i + 3];
+                } else {
+                    a[i + 3] = d[i + 3] * e[i + 3];
+                }
+                if (a[i + 4] > (real_t)0.) {
+                    b[i + 4] = a[i + 4] + b[i + 4];
+                } else {
+                    a[i + 4] = d[i + 4] * e[i + 4];
+                }
+                if (a[i + 5] > (real_t)0.) {
+                    b[i + 5] = a[i + 5] + b[i + 5];
+                } else {
+                    a[i + 5] = d[i + 5] * e[i + 5];
+                }
+                if (a[i + 6] > (real_t)0.) {
+                    b[i + 6] = a[i + 6] + b[i + 6];
+                } else {
+                    a[i + 6] = d[i + 6] * e[i + 6];
+                }
+                if (a[i + 7] > (real_t)0.) {
+                    b[i + 7] = a[i + 7] + b[i + 7];
+                } else {
+                    a[i + 7] = d[i + 7] * e[i + 7];
+                }
+            }
+        }
+        // handle remainder
+        for (; i < LEN_1D; i++) {
+            if (a[i] > (real_t)0.) {
+                b[i] = a[i] + b[i];
+            } else {
+                a[i] = d[i] * e[i];
+            }
+        }
+        dummy(a, b, c, d, e, aa, bb, cc, 0.);
+    }
     gettimeofday(&func_args->t2, NULL);
     return calc_checksum(__func__);
 }
@@ -3965,157 +4317,33 @@ int main(int argc, char ** argv){
     init(&ip, &s1, &s2);
     printf("Loop \tTime(sec) \tChecksum\n");
 
-    time_function(&s000, NULL);
-    time_function(&s111, NULL);
-    time_function(&s1111, NULL);
-    time_function(&s112, NULL);
-    time_function(&s1112, NULL);
-    time_function(&s113, NULL);
-    time_function(&s1113, NULL);
-    time_function(&s114, NULL);
-    time_function(&s115, NULL);
-    time_function(&s1115, NULL);
-    time_function(&s116, NULL);
-    time_function(&s118, NULL);
-    time_function(&s119, NULL);
-    time_function(&s1119, NULL);
-    time_function(&s121, NULL);
-    time_function(&s122, &(struct{int a;int b;}){n1, n3});
-    time_function(&s123, NULL);
-    time_function(&s124, NULL);
-    time_function(&s125, NULL);
-    time_function(&s126, NULL);
-    time_function(&s127, NULL);
-    time_function(&s128, NULL);
-    time_function(&s131, NULL);
-    time_function(&s132, NULL);
-    time_function(&s141, NULL);
-    time_function(&s151, NULL);
-    time_function(&s152, NULL);
-    time_function(&s161, NULL);
-    time_function(&s1161, NULL);
-    time_function(&s162, &n1);
-    time_function(&s171, &n1);
-    time_function(&s172, &(struct{int a;int b;}){n1, n3});
-    time_function(&s173, NULL);
-    time_function(&s174, &(struct{int a;}){LEN_1D/2});
-    time_function(&s175, &n1);
-    time_function(&s176, NULL);
-    time_function(&s211, NULL);
-    time_function(&s212, NULL);
-    time_function(&s1213, NULL);
-    time_function(&s221, NULL);
-    time_function(&s1221, NULL);
-    time_function(&s222, NULL);
-    time_function(&s231, NULL);
-    time_function(&s232, NULL);
-    time_function(&s1232, NULL);
-    time_function(&s233, NULL);
-    time_function(&s2233, NULL);
-    time_function(&s235, NULL);
-    time_function(&s241, NULL);
-    time_function(&s242, &(struct{real_t a;real_t b;}){s1, s2});
-    time_function(&s243, NULL);
-    time_function(&s244, NULL);
-    time_function(&s1244, NULL);
-    time_function(&s2244, NULL);
-    time_function(&s251, NULL);
-    time_function(&s1251, NULL);
-    time_function(&s2251, NULL);
-    time_function(&s3251, NULL);
-    time_function(&s252, NULL);
-    time_function(&s253, NULL);
-    time_function(&s254, NULL);
-    time_function(&s255, NULL);
-    time_function(&s256, NULL);
-    time_function(&s257, NULL);
-    time_function(&s258, NULL);
-    time_function(&s261, NULL);
-    time_function(&s271, NULL);
-    time_function(&s272, &s1);
-    time_function(&s273, NULL);
-    time_function(&s274, NULL);
-    time_function(&s275, NULL);
-    time_function(&s2275, NULL);
-    time_function(&s276, NULL);
-    time_function(&s277, NULL);
-    time_function(&s278, NULL);
-    time_function(&s279, NULL);
-    time_function(&s1279, NULL);
-    time_function(&s2710, &s1);
-    time_function(&s2711, NULL);
-    time_function(&s2712, NULL);
-    time_function(&s281, NULL);
-    time_function(&s1281, NULL);
-    time_function(&s291, NULL);
-    time_function(&s292, NULL);
-    time_function(&s293, NULL);
-    time_function(&s2101, NULL);
-    time_function(&s2102, NULL);
-    time_function(&s2111, NULL);
-    time_function(&s311, NULL);
-    time_function(&s31111, NULL);
-    time_function(&s312, NULL);
-    time_function(&s313, NULL);
-    time_function(&s314, NULL);
-    time_function(&s315, NULL);
-    time_function(&s316, NULL);
-    time_function(&s317, NULL);
-    time_function(&s318, &n1);
-    time_function(&s319, NULL);
-    time_function(&s3110, NULL);
-    time_function(&s13110, NULL);
-    time_function(&s3111, NULL);
-    time_function(&s3112, NULL);
-    time_function(&s3113, NULL);
-    time_function(&s321, NULL);
-    time_function(&s322, NULL);
-    time_function(&s323, NULL);
-    time_function(&s331, NULL);
-    time_function(&s332, &s1);
-    time_function(&s341, NULL);
-    time_function(&s342, NULL);
-    time_function(&s343, NULL);
-    time_function(&s351, NULL);
-    time_function(&s1351, NULL);
-    time_function(&s352, NULL);
-    time_function(&s353, ip);
-    time_function(&s421, NULL);
-    time_function(&s1421, NULL);
-    time_function(&s422, NULL);
-    time_function(&s423, NULL);
-    time_function(&s424, NULL);
-    time_function(&s431, NULL);
-    time_function(&s441, NULL);
-    time_function(&s442, NULL);
-    time_function(&s443, NULL);
-    time_function(&s451, NULL);
-    time_function(&s452, NULL);
-    time_function(&s453, NULL);
-    time_function(&s471, NULL);
-    time_function(&s481, NULL);
-    time_function(&s482, NULL);
-    time_function(&s491, ip);
-    time_function(&s4112, &(struct{int*a;real_t b;}){ip, s1});
-    time_function(&s4113, ip);
-    time_function(&s4114, &(struct{int*a;int b;}){ip, n1});
-    time_function(&s4115, ip);
-    time_function(&s4116, &(struct{int * a; int b; int c;}){ip, LEN_2D/2, n1});
-    time_function(&s4117, NULL);
-    time_function(&s4121, NULL);
-    time_function(&va, NULL);
-    time_function(&vag, ip);
-    time_function(&vas, ip);
-    time_function(&vif, NULL);
-    time_function(&vpv, NULL);
-    time_function(&vtv, NULL);
-    time_function(&vpvtv, NULL);
-    time_function(&vpvts, &s1);
-    time_function(&vpvpv, NULL);
-    time_function(&vtvtv, NULL);
-    time_function(&vsumr, NULL);
-    time_function(&vdotr, NULL);
-    time_function(&vbor, NULL);
+    // time_function(&s123, NULL);
+    // time_function(&s124, NULL);
+    // time_function(&s161, NULL);
+    // time_function(&s1161, NULL);
+    // time_function(&s253, NULL);
+    // time_function(&s258, NULL);
+    // time_function(&s271, NULL);
+    // time_function(&s271_intri_sse, NULL);
+    time_function(&s271_intri_avx, NULL);
+    // time_function(&s272, &s1);
+    // time_function(&s273, NULL);
+    // time_function(&s274, NULL);
+    // time_function(&s274_intri_sse, NULL);
+    time_function(&s274_intri_avx, NULL);
+    // time_function(&s276, NULL);
+    // time_function(&s278, NULL);
+    // time_function(&s2711, NULL);
+    // time_function(&s2712, NULL);
+    // time_function(&s314, NULL);
+    // time_function(&s316, NULL);
+    // time_function(&s3111, NULL);
+    // time_function(&s3113, NULL);
+    // time_function(&s341, NULL);
+    // time_function(&s342, NULL);
+    // time_function(&s343, NULL);
+    // time_function(&s443, NULL);
+    // time_function(&vif, NULL);
 
     return EXIT_SUCCESS;
 }

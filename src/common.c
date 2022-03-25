@@ -423,7 +423,7 @@ int initialise_arrays(const char* name)
         set_1d_array(b, LEN_1D, any,frac2);
         set_1d_array(c, LEN_1D, any,frac2);
         set_1d_array(d, LEN_1D, one,unit);
-    } else if (!strcmp(name, "s271")) {
+    } else if (!strcmp(name, "s271") || !strcmp(name, "s271_intri_sse") || !strcmp(name, "s271_intri_avx")) {
         set_1d_array(a, LEN_1D, one,unit);
         set_1d_array(b, LEN_1D, any,frac);
         set_1d_array(c, LEN_1D, any,frac);
@@ -439,7 +439,7 @@ int initialise_arrays(const char* name)
         set_1d_array(c, LEN_1D, one,unit);
         set_1d_array(d, LEN_1D,small,unit);
         set_1d_array(e, LEN_1D, any,frac);
-    } else if (!strcmp(name, "s274")) {
+    } else if (!strcmp(name, "s274") || !strcmp(name, "s274_intri_sse") || !strcmp(name, "s274_intri_avx")) {
         set_1d_array(a, LEN_1D,zero,unit);
         set_1d_array(b, LEN_1D, one,unit);
         set_1d_array(c, LEN_1D, one,unit);
@@ -896,13 +896,13 @@ real_t calc_checksum(const char * name)
         return sum_b() + sum_e();
     } else if (!strcmp(name, "s261")) {
         return sum_a() + sum_c();
-    } else if (!strcmp(name, "s271")) {
+    } else if (!strcmp(name, "s271") || !strcmp(name, "s271_intri_sse") || !strcmp(name, "s271_intri_avx")) {
         return sum_a();
     } else if (!strcmp(name, "s272")) {
         return sum_a() + sum_b();
     } else if (!strcmp(name, "s273")) {
         return sum_a() + sum_b() + sum_c();
-    } else if (!strcmp(name, "s274")) {
+    } else if (!strcmp(name, "s274") || !strcmp(name, "s274_intri_sse") || !strcmp(name, "s274_intri_avx")) {
         return sum_a() + sum_b();
     } else if (!strcmp(name, "s275")) {
         return sum_aa();
